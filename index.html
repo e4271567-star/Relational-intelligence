@@ -1,0 +1,71 @@
+
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17191c">
+<title>Relational Intelligence</title>
+<style>
+:root{--bg:#f7f8fa;--surface:#fff;--sub:#f1f3f5;--text:#17191c;--muted:#697078;--border:#dfe3e7;--accent:#315efb;--purple:#7257b8;--green:#218739;--danger:#c43d3d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+button{font:inherit}.app{min-height:100vh;display:flex;flex-direction:column}
+header{height:64px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:10}
+.brand{font-weight:800}.meta{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}.badge{padding:5px 8px;border-radius:999px;background:#edf8ef;color:var(--green);font-weight:700}.hyp{background:#f3efff;color:var(--purple)}
+nav{display:flex;gap:6px;padding:10px 12px;overflow:auto;background:#fff;border-bottom:1px solid var(--border)}nav button{border:0;background:var(--sub);padding:9px 14px;border-radius:10px;white-space:nowrap}nav button.active{background:var(--accent);color:#fff}
+main{padding:12px;max-width:1000px;width:100%;margin:auto;flex:1}.canvas{background:#fff;border:1px solid var(--border);border-radius:16px;min-height:430px;position:relative;overflow:hidden;background-image:linear-gradient(#eef0f2 1px,transparent 1px),linear-gradient(90deg,#eef0f2 1px,transparent 1px);background-size:24px 24px}
+.edge{position:absolute;height:2px;background:#8a9199;transform-origin:left center}.node{position:absolute;background:#fff;border:1px solid #c9ced4;border-radius:12px;padding:12px 16px;min-width:125px;text-align:center;box-shadow:0 4px 14px #0000000d}.node.sel{border:2px solid var(--accent)}.rel{position:absolute;right:50%;top:48%;transform:translate(50%,-50%);background:#fff;border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-size:12px;cursor:pointer}
+.panel{margin-top:12px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px}.row{display:flex;gap:8px;flex-wrap:wrap}.card{background:var(--sub);border-radius:12px;padding:12px;margin-top:10px}.actions button{border:0;border-radius:10px;padding:11px 14px;background:var(--accent);color:#fff}.actions button.secondary{background:var(--sub);color:var(--text)}.actions button.danger{background:#fff0f0;color:var(--danger)}
+h2,h3,p{margin:0 0 8px}.muted{color:var(--muted);font-size:13px}.status{position:sticky;bottom:0;background:#17191c;color:#fff;padding:9px 14px;font-size:12px;display:flex;justify-content:space-between}
+@media(min-width:800px){main{padding:24px}.canvas{min-height:560px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><div class="brand">Relational Intelligence</div><div class="muted">Professional relational workspace</div></div><div class="meta"><span id="version">V1</span><span id="state" class="badge">● ACTUAL</span></div></header>
+<nav id="nav"></nav>
+<main>
+<div class="panel" style="margin-top:0"><h2 id="title">Explore</h2><p id="subtitle" class="muted">Select a relation to begin.</p></div>
+<div class="canvas" id="canvas"></div>
+<div class="panel" id="panel"></div>
+</main>
+<div class="status"><span id="statusText">Ready</span><span>Model: demo</span></div>
+</div>
+<script>
+const tabs=["Explore","Analyze","Simulate","Compare","Decide"];
+let model=null, selected=null, scenario=null, analysis=null, decision=null, currentTab="Explore";
+const $=id=>document.getElementById(id);
+async function api(url,opt){const r=await fetch(url,opt);if(!r.ok)throw new Error(await r.text());return r.json()}
+async function load(){model=await api("/api/model");render()}
+function renderNav(){ $("nav").innerHTML=tabs.map(t=>`<button class="${t===currentTab?'active':''}" onclick="setTab('${t}')">${t}</button>`).join("")}
+function currentVersion(){return model.versions.find(v=>v.id===model.current_version)}
+function renderCanvas(){let v=currentVersion();if(scenario){api("/api/scenarios/"+scenario.id).then(x=>draw(x.state))}
+else draw(v)}
+function draw(v){$("canvas").innerHTML=`
+<div class="node ${selected==='customer-order'?'sel':''}" style="left:12%;top:30%">Customer</div>
+<div class="node" style="left:65%;top:18%">Order</div>
+<div class="node" style="left:65%;top:62%">Invoice</div>
+<div class="edge" style="left:25%;top:36%;width:42%;transform:rotate(-5deg)"></div>
+<div class="edge" style="left:25%;top:54%;width:42%;transform:rotate(12deg)"></div>
+<div class="rel" onclick="selectRelation()">Customer → Order</div>`}
+function selectRelation(){selected="customer-order";setTab("Explore")}
+function setTab(t){currentTab=t;render()}
+function render(){renderNav();renderCanvas();$("version").textContent=(scenario?"V"+scenario.baseline_version.replace("v","")+" · SCENARIO":"V"+currentVersion().number);$("state").textContent=scenario?"◌ HYPOTHETICAL":"● ACTUAL";$("state").className="badge "+(scenario?"hyp":"");let title=tabs.indexOf(currentTab)>=0?currentTab:"Explore";$("title").textContent=title;
+let sub={Explore:"Inspect the current model without changing it.",Analyze:"Read structural and relational effects.",Simulate:"Create a hypothetical scenario without mutating the actual model.",Compare:"Compare baseline and scenario.",Decide:"Record a decision, then review and apply."}[currentTab];$("subtitle").textContent=sub;
+let html="";
+if(currentTab==="Explore"){html=`<h3>Selected relation</h3><div class="card"><b>Customer → Order</b><div class="muted">Relation ID: customer-order</div></div><div class="row actions" style="margin-top:12px"><button onclick="setTab('Simulate')">Simulate</button><button class="secondary" onclick="setTab('Analyze')">Analyze</button></div>`}
+if(currentTab==="Simulate"){html=`<h3>Scenario</h3><p class="muted">Baseline: ${scenario?scenario.baseline_version.toUpperCase():'V'+currentVersion().number}</p><div class="card">Remove <b>Customer → Order</b><br><span class="muted">Actual model remains unchanged.</span></div><div class="row actions" style="margin-top:12px"><button onclick="createScenario()">Create Scenario A</button></div>`}
+if(currentTab==="Analyze"){html=`<h3>Analysis</h3>${analysis?`<div class="card"><b>Structural</b><br>Entities: ${analysis.structural.entities}<br>Relations: ${analysis.structural.relations}<br>Relation Δ: ${analysis.structural.relation_delta}</div><div class="card"><b>Relational</b><br>Baseline relations: ${analysis.relational.baseline_relations}<br>Scenario relations: ${analysis.relational.scenario_relations}</div><p class="muted" style="margin-top:10px">${analysis.interpretation}</p>`:`<p class="muted">Create a scenario first, then analyze it.</p>`}<div class="row actions" style="margin-top:12px"><button onclick="runAnalysis()" ${scenario?'':'disabled'}>Run Analysis</button></div>`}
+if(currentTab==="Compare"){html=`<h3>Comparison</h3>${scenario?`<div class="card"><b>Baseline:</b> ${scenario.baseline_version.toUpperCase()}<br><b>Scenario:</b> Scenario A<br><b>Removed:</b> Customer → Order<br><b>Entities:</b> unchanged<br><b>Relations:</b> 2 → 1</div>`:`<p class="muted">No scenario to compare yet.</p>`}`}
+if(currentTab==="Decide"){html=`<h3>Decision</h3>${decision?`<div class="card">Status: <b>${decision.status}</b><br>Candidate: Scenario A</div>`:`<p class="muted">Create a decision for the active scenario.</p>`}<div class="row actions" style="margin-top:12px">${scenario&&!decision?`<button onclick="createDecision()">Create Decision</button>`:''}${decision&&decision.status==='PENDING'?`<button onclick="selectDecision()">Select Scenario A</button>`:''}${decision&&decision.status==='SELECTED'?`<button onclick="applyScenario()">Review & Apply</button>`:''}</div>`}
+$("panel").innerHTML=html;$("statusText").textContent=scenario?"Scenario A · HYPOTHETICAL":"Ready"}
+}
+async function createScenario(){scenario=await api("/api/scenarios",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({baseline_version:model.current_version,remove_relation_id:"customer-order"})});await load();setTab("Analyze")}
+async function runAnalysis(){analysis=await api("/api/analyses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scenario_id:scenario.id})});render()}
+async function createDecision(){decision=await api("/api/decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({baseline_version:scenario.baseline_version,scenario_ids:[scenario.id]})});render()}
+async function selectDecision(){decision=await api("/api/decisions/"+decision.id+"/select",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scenario_id:scenario.id})});render()}
+async function applyScenario(){if(!confirm("Apply Scenario A and create a new model version?"))return;await api("/api/scenarios/"+scenario.id+"/apply",{method:"POST"});scenario=null;analysis=null;decision=null;await load();setTab("Explore")}
+load().catch(e=>{$("panel").innerHTML="<b>Could not connect to backend.</b><p class='muted'>The service may still be starting.</p>"})
+</script>
+</body>
+</html>
